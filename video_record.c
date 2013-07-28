@@ -17,10 +17,12 @@
 #include "interface/mmal/util/mmal_connection.h"
 #include <cairo/cairo.h>
 
+#include "get_gps.h"
 
 #define MMAL_CAMERA_PREVIEW_PORT 0
 #define MMAL_CAMERA_VIDEO_PORT 1
 #define MMAL_CAMERA_CAPTURE_PORT 2
+
 
 typedef struct {
 	int width;
@@ -89,12 +91,12 @@ static void camera_video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T
 			for (y = 0; y < 100; y++) {
 				if (local_overlay_buffer[(y * 600 + x) * 4] > 0) {
 					//copy luma Y
-					output_buffer->data[y * userdata->width + x ] = 0xdf;
+					output_buffer->data[y * userdata->width + x ] = 0x0f;
 					//pointer to chrominance U/V
 					chroma= y / 2 * userdata->width / 2 + x / 2 + chrominance_offset;
 					//just guessing colors 
-					output_buffer->data[chroma] = 0x38 ;
-					output_buffer->data[chroma+v_offset] = 0xb8 ;
+					output_buffer->data[chroma] = 0x80 ;
+					output_buffer->data[chroma+v_offset] = 0xff ;
 				}
 			}
 		}
@@ -454,6 +456,7 @@ int main(int argc, char** argv) {
 	MMAL_STATUS_T status;
 
 	//GPS Fields
+	sTPV sGPS;
 	const char* time;
 	double lat,lon,speed;
 
@@ -488,6 +491,8 @@ int main(int argc, char** argv) {
 	userdata.overlay_buffer2 = cairo_image_surface_get_data(surface2);
 
 
+	//start gps
+	int ret = gps_init();
 
 	if (1 && setup_camera(&userdata) != 0) {
 		fprintf(stderr, "Error: setup camera %x\n", status);
@@ -508,50 +513,49 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-
 	char text[256];
 
 	//fake Speed and GPS data
-	lat = 47.4912;
-	lon = 8.906;
+	lat = 0.4912;
+	lon = 0.906;
 	speed = 20.0;
+	sGPS.lat=4.0;
+	sGPS.lon=-4.0;
+	sGPS.speed=999;
 
-    while (1) {
-	//Update Draw to unused buffer that way there is no flickering of the overlay text if the overlay update rate
-        //and video FPS are not the same
-	if (userdata.overlay == 1) { 
-        	cairo_rectangle(context, 0.0, 0.0, 600, 100);
-        	cairo_set_source_rgba(context, 0.0, 0.0, 0.0, 1.0);
-        	cairo_fill(context);
-        	cairo_move_to(context, 0.0, 0.0);
-        	cairo_set_source_rgba(context, 1.0, 1.0, 1.0, 1.0);        
-       		cairo_move_to(context, 0.0, 30.0);
-        	cairo_set_font_size(context, 20.0);
-        	sprintf(text, "%.2fFPS GPS: %.3f, %.3f Speed %.1fkm/h b0", userdata.fps,lat,lon,speed);
-        	cairo_show_text(context, text);
-		userdata.overlay = 0;
+	while (1) {
+		parse_json_tpv(&sGPS);
+		//Update Draw to unused buffer that way there is no flickering of the overlay text if the overlay update rate
+		//and video FPS are not the same
+		if (userdata.overlay == 1) { 
+			cairo_rectangle(context, 0.0, 0.0, 600, 100);
+			cairo_set_source_rgba(context, 0.0, 0.0, 0.0, 1.0);
+			cairo_fill(context);
+			cairo_move_to(context, 0.0, 0.0);
+			cairo_set_source_rgba(context, 1.0, 1.0, 1.0, 1.0);        
+			cairo_move_to(context, 0.0, 30.0);
+			cairo_set_font_size(context, 20.0);
+			sprintf(text, "%.2fFPS GPS: %.6f, %.6f Speed %.1fkm/h b0", userdata.fps,sGPS.lat,sGPS.lon,sGPS.speed);
+			cairo_show_text(context, text);
+			userdata.overlay = 0;
+		}
+		else {
+			cairo_rectangle(context2, 0.0, 0.0, 600, 100);
+			cairo_set_source_rgba(context2, 0.0, 0.0, 0.0, 1.0);
+			cairo_fill(context2);
+			cairo_move_to(context2, 0.0, 0.0);
+			cairo_set_source_rgba(context2, 1.0, 1.0, 1.0, 1.0);        
+			cairo_move_to(context2, 0.0, 30.0);
+			cairo_set_font_size(context2, 20.0);
+			sprintf(text, "%.2fFPS GPS: %.6f, %.6f Speed %.1fkm/h b1", userdata.fps,sGPS.lat,sGPS.lon,sGPS.speed);
+			cairo_show_text(context2, text);
+			userdata.overlay = 1;
+		}
+
+
+		usleep(500000);
 	}
-	else {
-        	cairo_rectangle(context2, 0.0, 0.0, 600, 100);
-        	cairo_set_source_rgba(context2, 0.0, 0.0, 0.0, 1.0);
-        	cairo_fill(context2);
-        	cairo_move_to(context2, 0.0, 0.0);
-        	cairo_set_source_rgba(context2, 1.0, 1.0, 1.0, 1.0);        
-       		cairo_move_to(context2, 0.0, 30.0);
-        	cairo_set_font_size(context2, 20.0);
-        	sprintf(text, "%.2fFPS GPS: %.3f, %.3f Speed %.1fkm/h b1", userdata.fps,lat,lon,speed);
-        	//sprintf(text, "%.2fFPS GPS: 0.00000, 0.00000 Speed 0km/h b1", userdata.fps);
-        	cairo_show_text(context2, text);
-		userdata.overlay = 1;
-	}
-
-
-	lat += 0.01;
-	lon += 0.01;
-	speed += 0.1;
-        usleep(990000);
-    }
-
-    return 0;
+	ret = gps_disable();
+	return 0;
 }
 
