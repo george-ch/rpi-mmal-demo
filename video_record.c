@@ -17,6 +17,7 @@
 #include "interface/mmal/util/mmal_connection.h"
 #include <cairo/cairo.h>
 
+
 #define MMAL_CAMERA_PREVIEW_PORT 0
 #define MMAL_CAMERA_VIDEO_PORT 1
 #define MMAL_CAMERA_CAPTURE_PORT 2
@@ -452,6 +453,9 @@ int main(int argc, char** argv) {
 	PORT_USERDATA userdata;
 	MMAL_STATUS_T status;
 
+	//GPS Fields
+	const char* time;
+	double lat,lon,speed;
 
 	cairo_surface_t *surface,*surface2;
 	cairo_t *context,*context2;
@@ -508,9 +512,9 @@ int main(int argc, char** argv) {
 	char text[256];
 
 	//fake Speed and GPS data
-	float lat = 47.4912;
-	float lon = 8.906;
-	float speed = 20.0;
+	lat = 47.4912;
+	lon = 8.906;
+	speed = 20.0;
 
     while (1) {
 	//Update Draw to unused buffer that way there is no flickering of the overlay text if the overlay update rate

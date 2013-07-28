@@ -16,7 +16,7 @@ link_directories(/opt/vc/src/hello_pi/libs/vgfont)
 add_executable(mmaldemo main.c)
 add_executable(mmal_buffer_demo buffer_demo.c)
 add_executable(mmal_opencv_demo opencv_demo.c)
-add_executable(mmal_video_record video_record.c)
+add_executable(mmal_video_record video_record.c nxjson.c)
 
 find_package( OpenCV REQUIRED )
 
